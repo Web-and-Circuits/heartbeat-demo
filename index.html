@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPENCLAW // SYSTEMS MONITOR</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;700&display=swap');
+
+:root {
+  --bg: #0a0e14;
+  --panel: #0d1119;
+  --panel-border: #1a2233;
+  --panel-header: #111827;
+  --text: #c5cdd8;
+  --text-dim: #4a5568;
+  --text-bright: #e8edf5;
+  --accent: #4fc3f7;
+  --accent-dim: rgba(79, 195, 247, 0.12);
+  --accent-glow: rgba(79, 195, 247, 0.3);
+  --green: #66bb6a;
+  --green-dim: rgba(102, 187, 106, 0.15);
+  --yellow: #ffd54f;
+  --yellow-dim: rgba(255, 213, 79, 0.12);
+  --red: #ef5350;
+  --red-dim: rgba(239, 83, 80, 0.12);
+  --orange: #ffa726;
+  --purple: #ab47bc;
+  --purple-dim: rgba(171, 71, 188, 0.12);
+  --mono: 'JetBrains Mono', 'SF Mono', monospace;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --scanline: rgba(0,0,0,0.03);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { 
+  width: 100%; height: 100%; 
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+/* ── CRT / Atmosphere ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    var(--scanline) 0px,
+    var(--scanline) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* ── Top bar ── */
+.topbar {
+  height: 36px;
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  z-index: 10;
+  position: relative;
+}
+
+.topbar-brand {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--panel-border);
+}
+
+.topbar-nav {
+  display: flex;
+  gap: 2px;
+}
+
+.topbar-tab {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.topbar-tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.topbar-tab.active { 
+  color: var(--accent); 
+  background: var(--accent-dim);
+  border-color: rgba(79, 195, 247, 0.2);
+}
+
+.topbar-status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.topbar-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Main layout ── */
+.main {
+  display: flex;
+  height: calc(100vh - 36px);
+}
+
+/* ── Code panel (left) ── */
+.code-panel {
+  width: 48%;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--panel-border);
+  position: relative;
+}
+
+.panel-header {
+  height: 32px;
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.panel-header .filepath {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.code-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.code-gutter-line {
+  display: flex;
+  min-height: 24px;
+  line-height: 24px;
+  font-size: 12.5px;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.code-gutter-line:hover { background: rgba(255,255,255,0.02); }
+
+.code-gutter-line.active {
+  background: var(--accent-dim);
+}
+
+.code-gutter-line.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.code-gutter-line.executed::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--green);
+}
+
+.code-gutter {
+  width: 44px;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-dim);
+  font-size: 11px;
+  user-select: none;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.code-content {
+  flex: 1;
+  white-space: pre;
+  padding-right: 20px;
+}
+
+/* Inline value annotations (Bret Victor style) */
+.inline-value {
+  display: inline-block;
+  background: var(--accent-dim);
+  border: 1px solid rgba(79, 195, 247, 0.25);
+  border-radius: 3px;
+  padding: 0 6px;
+  margin-left: 12px;
+  font-size: 11px;
+  color: var(--accent);
+  animation: value-appear 0.3s ease-out;
+  vertical-align: middle;
+}
+
+.inline-value.changed {
+  background: var(--yellow-dim);
+  border-color: rgba(255, 213, 79, 0.3);
+  color: var(--yellow);
+  animation: value-flash 0.4s ease-out;
+}
+
+@keyframes value-appear {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes value-flash {
+  0% { background: rgba(255, 213, 79, 0.4); }
+  100% { background: var(--yellow-dim); }
+}
+
+/* Syntax colors */
+.s-kw { color: #c792ea; }
+.s-fn { color: #82aaff; }
+.s-str { color: #c3e88d; }
+.s-num { color: #f78c6c; }
+.s-cm { color: #546e7a; font-style: italic; }
+.s-var { color: #e8edf5; }
+.s-op { color: #89ddff; }
+.s-type { color: #ffcb6b; }
+.s-prop { color: #f07178; }
+
+/* ── Visualization panel (right) ── */
+.viz-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Oscilloscope ── */
+.scope-area {
+  flex: 1;
+  position: relative;
+  min-height: 200px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.scope-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.scope-label {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.scope-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  display: flex;
+  gap: 14px;
+  font-size: 9px;
+}
+
+.scope-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+}
+
+.scope-legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+
+/* ── Gauges row ── */
+.gauges-row {
+  height: 180px;
+  display: flex;
+  border-bottom: 1px solid var(--panel-border);
+  flex-shrink: 0;
+}
+
+.gauge {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--panel-border);
+  background: var(--panel);
+  padding: 12px;
+  position: relative;
+}
+
+.gauge:last-child { border-right: none; }
+
+.gauge-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.gauge-ring {
+  width: 80px;
+  height: 80px;
+  position: relative;
+}
+
+.gauge-ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-135deg);
+}
+
+.gauge-ring-bg {
+  fill: none;
+  stroke: var(--panel-border);
+  stroke-width: 4;
+  stroke-dasharray: 198 66;
+  stroke-linecap: round;
+}
+
+.gauge-ring-fill {
+  fill: none;
+  stroke-width: 4;
+  stroke-dasharray: 198 66;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease-out, stroke 0.3s;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.gauge-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.gauge-sub {
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+/* ── Controls dock (bottom) ── */
+.controls-dock {
+  height: 120px;
+  background: var(--panel-header);
+  border-top: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.ctrl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ctrl-label {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.ctrl-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.ctrl-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-dim);
+}
+
+.ctrl-btn:active { transform: scale(0.97); }
+
+.ctrl-btn.primary {
+  background: var(--accent-dim);
+  border-color: rgba(79, 195, 247, 0.3);
+  color: var(--accent);
+}
+
+.ctrl-btn.primary:hover {
+  background: rgba(79, 195, 247, 0.2);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.ctrl-btn.danger {
+  border-color: rgba(239, 83, 80, 0.3);
+  color: var(--red);
+}
+
+.ctrl-btn.danger:hover {
+  background: var(--red-dim);
+  box-shadow: 0 0 8px rgba(239, 83, 80, 0.2);
+}
+
+.ctrl-sep {
+  width: 1px;
+  height: 60px;
+  background: var(--panel-border);
+  margin: 0 8px;
+}
+
+.ctrl-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ctrl-slider input[type="range"] {
+  -webkit-appearance: none;
+  width: 140px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel-border);
+  outline: none;
+}
+
+.ctrl-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+.ctrl-slider-val {
+  font-size: 12px;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* ── Narration overlay ── */
+.narration-bar {
+  position: absolute;
+  bottom: 130px;
+  left: 0; right: 0;
+  padding: 12px 24px;
+  background: linear-gradient(to right, rgba(10, 14, 20, 0.95), rgba(10, 14, 20, 0.8));
+  border-top: 1px solid var(--panel-border);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  transition: opacity 0.3s, transform 0.3s;
+  transform: translateY(0);
+}
+
+.narration-bar.hidden {
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+}
+
+.narration-bar em { color: var(--accent); font-style: normal; font-weight: 500; }
+.narration-bar strong { color: var(--yellow); }
+
+/* ── Event feed (slide-in from right) ── */
+.event-feed {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  width: 280px;
+  bottom: 0;
+  background: rgba(13, 17, 25, 0.95);
+  border-left: 1px solid var(--panel-border);
+  backdrop-filter: blur(8px);
+  z-index: 8;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-feed.open { transform: translateX(0); }
+
+.event-feed-header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--panel-border);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.event-feed-toggle {
+  position: absolute;
+  right: 12px;
+  top: 40px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  z-index: 9;
+  transition: all 0.2s;
+}
+
+.event-feed-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+.event-feed-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.event-entry {
+  padding: 2px 14px;
+  animation: entry-in 0.25s ease-out;
+}
+
+@keyframes entry-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.event-entry .ts { color: var(--text-dim); }
+.event-entry .ev-request { color: var(--accent); }
+.event-entry .ev-coalesce { color: var(--yellow); }
+.event-entry .ev-run { color: var(--green); }
+.event-entry .ev-retry { color: var(--red); }
+.event-entry .ev-skip { color: var(--orange); }
+.event-entry .ev-done { color: var(--purple); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<!-- ═══ Top bar ═══ -->
+<div class="topbar">
+  <div class="topbar-brand">🐑 OpenClaw</div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-nav">
+    <div class="topbar-tab active" data-page="heartbeat">01 Heartbeat</div>
+    <div class="topbar-tab" data-page="routing">02 Routing</div>
+    <div class="topbar-tab" data-page="channels">03 Channels</div>
+  </div>
+  <div class="topbar-status">
+    <div class="topbar-dot"></div>
+    <span>SYSTEMS NOMINAL</span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<!-- ═══ Main area ═══ -->
+<div class="main">
+  <!-- Code panel -->
+  <div class="code-panel">
+    <div class="panel-header">
+      <span>SOURCE</span>
+      <span class="filepath">src/infra/heartbeat-wake.ts</span>
+    </div>
+    <div class="code-scroll" id="code-scroll"></div>
+  </div>
+
+  <!-- Visualization panel -->
+  <div class="viz-panel">
+    <div class="panel-header">
+      <span>SCOPE</span>
+      <span style="color:var(--accent)">heartbeat coalescing waveform</span>
+      <span class="scope-label"></span>
+    </div>
+
+    <!-- Oscilloscope -->
+    <div class="scope-area">
+      <canvas class="scope-canvas" id="scope"></canvas>
+      <div class="scope-legend">
+        <div class="scope-legend-item"><div class="scope-legend-dot" style="background:var(--accent)"></div> requests</div>
+        <div class="scope-legend-item"><div class="scope-legend-dot" style="background:var(--green)"></div> handler</div>
+        <div class="scope-legend-item"><div class="scope-legend-dot" style="background:var(--yellow)"></div> timer</div>
+        <div class="scope-legend-item"><div class="scope-legend-dot" style="background:var(--red)"></div> errors</div>
+      </div>
+    </div>
+
+    <!-- Gauges -->
+    <div class="gauges-row">
+      <div class="gauge" id="gauge-timer">
+        <div class="gauge-label">Timer</div>
+        <div class="gauge-ring">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-ring-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-ring-fill" cx="40" cy="40" r="32" id="gauge-timer-fill" stroke="var(--text-dim)" stroke-dashoffset="198"/>
+          </svg>
+          <div class="gauge-value" id="gauge-timer-val" style="color:var(--text-dim)">OFF</div>
+        </div>
+        <div class="gauge-sub" id="gauge-timer-sub">idle</div>
+      </div>
+      <div class="gauge" id="gauge-running">
+        <div class="gauge-label">Running</div>
+        <div class="gauge-ring">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-ring-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-ring-fill" cx="40" cy="40" r="32" id="gauge-running-fill" stroke="var(--text-dim)" stroke-dashoffset="198"/>
+          </svg>
+          <div class="gauge-value" id="gauge-running-val" style="color:var(--text-dim)">NO</div>
+        </div>
+        <div class="gauge-sub" id="gauge-running-sub">idle</div>
+      </div>
+      <div class="gauge" id="gauge-scheduled">
+        <div class="gauge-label">Scheduled</div>
+        <div class="gauge-ring">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-ring-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-ring-fill" cx="40" cy="40" r="32" id="gauge-scheduled-fill" stroke="var(--text-dim)" stroke-dashoffset="198"/>
+          </svg>
+          <div class="gauge-value" id="gauge-scheduled-val" style="color:var(--text-dim)">NO</div>
+        </div>
+        <div class="gauge-sub" id="gauge-scheduled-sub">—</div>
+      </div>
+      <div class="gauge" id="gauge-reason">
+        <div class="gauge-label">Pending Reason</div>
+        <div class="gauge-ring">
+          <svg viewBox="0 0 80 80">
+            <circle class="gauge-ring-bg" cx="40" cy="40" r="32"/>
+            <circle class="gauge-ring-fill" cx="40" cy="40" r="32" id="gauge-reason-fill" stroke="var(--text-dim)" stroke-dashoffset="198"/>
+          </svg>
+          <div class="gauge-value" id="gauge-reason-val" style="color:var(--text-dim);font-size:11px">null</div>
+        </div>
+        <div class="gauge-sub" id="gauge-reason-sub">—</div>
+      </div>
+    </div>
+
+    <!-- Narration -->
+    <div class="narration-bar" id="narration">
+      This is the <em>heartbeat wake scheduler</em>. It decides when the agent opens its eyes.<br>
+      Press <strong>WAKE</strong> to send a heartbeat request. Watch the signals propagate.
+    </div>
+
+    <!-- Controls dock -->
+    <div class="controls-dock">
+      <div class="ctrl-group">
+        <div class="ctrl-label">Signal</div>
+        <div style="display:flex;gap:6px">
+          <button class="ctrl-btn primary" id="btn-wake">⚡ WAKE</button>
+          <button class="ctrl-btn primary" id="btn-burst">⚡×3 BURST</button>
+        </div>
+      </div>
+      <div class="ctrl-sep"></div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">Inject</div>
+        <div style="display:flex;gap:6px">
+          <button class="ctrl-btn" id="btn-busy">🔒 BUSY</button>
+          <button class="ctrl-btn danger" id="btn-fail">💥 FAULT</button>
+        </div>
+      </div>
+      <div class="ctrl-sep"></div>
+      <div class="ctrl-slider">
+        <div class="ctrl-label">Coalesce Window</div>
+        <input type="range" id="coalesce-slider" min="50" max="2000" value="250" step="50">
+        <div class="ctrl-slider-val" id="coalesce-val">250ms</div>
+      </div>
+      <div class="ctrl-sep"></div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">System</div>
+        <button class="ctrl-btn" id="btn-reset">↺ RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event feed (slide-in) -->
+  <div class="event-feed" id="event-feed">
+    <div class="event-feed-header">Event Log</div>
+    <div class="event-feed-scroll" id="event-log"></div>
+  </div>
+  <div class="event-feed-toggle" id="feed-toggle" title="Toggle event log">▶</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// Source Code with Inline Values
+// ═══════════════════════════════════════════════════════
+
+const SOURCE = [
+  { code: '', tag: '' },
+  { code: 'let handler = null;', tag: 'decl' },
+  { code: 'let pendingReason = null;', tag: 'decl' },
+  { code: 'let scheduled = false;', tag: 'decl' },
+  { code: 'let running = false;', tag: 'decl' },
+  { code: 'let timer = null;', tag: 'decl' },
+  { code: '', tag: '' },
+  { code: 'const DEFAULT_COALESCE_MS = 250;', tag: 'const' },
+  { code: 'const DEFAULT_RETRY_MS = 1_000;', tag: 'const' },
+  { code: '', tag: '' },
+  { code: 'function schedule(coalesceMs) {', tag: 'fn-start' },    // 10
+  { code: '  if (timer) { return; }', tag: 'guard' },               // 11
+  { code: '  timer = setTimeout(async () => {', tag: 'set-timer' }, // 12
+  { code: '    timer = null;', tag: 'clear-timer' },                // 13
+  { code: '    scheduled = false;', tag: 'clear-sched' },           // 14
+  { code: '    const active = handler;', tag: 'get-handler' },      // 15
+  { code: '    if (!active) { return; }', tag: 'no-handler' },      // 16
+  { code: '    if (running) {', tag: 'check-run' },                 // 17
+  { code: '      scheduled = true;', tag: 'mark-sched' },           // 18
+  { code: '      schedule(coalesceMs);', tag: 'resched' },          // 19
+  { code: '      return;', tag: 'resched-ret' },                    // 20
+  { code: '    }', tag: '' },                                        // 21
+  { code: '', tag: '' },
+  { code: '    const reason = pendingReason;', tag: 'read-reason' },// 23
+  { code: '    pendingReason = null;', tag: 'clear-reason' },       // 24
+  { code: '    running = true;', tag: 'run-start' },                // 25
+  { code: '    try {', tag: '' },
+  { code: '      const res = await active({ reason });', tag: 'exec' }, // 27
+  { code: '      if (res.status === "skipped") {', tag: 'check-skip' },
+  { code: '        pendingReason = reason ?? "retry";', tag: 'skip-reason' },
+  { code: '        schedule(DEFAULT_RETRY_MS);', tag: 'skip-retry' },
+  { code: '      }', tag: '' },
+  { code: '    } catch {', tag: 'catch' },
+  { code: '      pendingReason = reason ?? "retry";', tag: 'err-reason' },
+  { code: '      schedule(DEFAULT_RETRY_MS);', tag: 'err-retry' },
+  { code: '    } finally {', tag: '' },
+  { code: '      running = false;', tag: 'run-end' },               // 35
+  { code: '      if (pendingReason || scheduled) {', tag: 'check-pending' },
+  { code: '        schedule(coalesceMs);', tag: 'final-sched' },
+  { code: '      }', tag: '' },
+  { code: '    }', tag: '' },
+  { code: '  }, coalesceMs);', tag: 'timer-val' },                  // 40
+  { code: '}', tag: '' },
+];
+
+// Syntax highlighting — token-based to avoid class-name leakage
+function hl(code) {
+  const kwSet = new Set(['let','const','var','function','if','return','try','catch','finally','await','async','true','false','null','typeof']);
+  const fnSet = new Set(['schedule','handler','active','setTimeout']);
+  const varSet = new Set(['DEFAULT_COALESCE_MS','DEFAULT_RETRY_MS','coalesceMs','timer','scheduled','running','pendingReason','res','reason']);
+  const opSet = new Set(['===','!==','=>','||','&&']);
+  
+  // Split into tokens preserving all characters
+  const parts = code.split(/(\b\w+\b|"[^"]*"|===|!==|=>|\|\||&&|\/\/.*$)/gm);
+  
+  return parts.map(tok => {
+    if (!tok) return '';
+    // Escape HTML in token
+    const esc = tok.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (tok.startsWith('//')) return `<span class="s-cm">${esc}</span>`;
+    if (tok.startsWith('"')) return `<span class="s-str">${esc}</span>`;
+    if (/^\d[\d_]*$/.test(tok)) return `<span class="s-num">${esc}</span>`;
+    if (kwSet.has(tok)) return `<span class="s-kw">${esc}</span>`;
+    if (fnSet.has(tok)) return `<span class="s-fn">${esc}</span>`;
+    if (varSet.has(tok)) return `<span class="s-var">${esc}</span>`;
+    if (opSet.has(tok)) return `<span class="s-op">${esc}</span>`;
+    return esc;
+  }).join('');
+}
+
+// Render code
+const codeScroll = document.getElementById('code-scroll');
+const codeLines = [];
+
+SOURCE.forEach((line, i) => {
+  const el = document.createElement('div');
+  el.className = 'code-gutter-line';
+  el.dataset.idx = i;
+  el.dataset.tag = line.tag;
+  
+  const gutter = document.createElement('span');
+  gutter.className = 'code-gutter';
+  gutter.textContent = i || '';
+  
+  const content = document.createElement('span');
+  content.className = 'code-content';
+  content.innerHTML = hl(line.code);
+  
+  el.appendChild(gutter);
+  el.appendChild(content);
+  codeScroll.appendChild(el);
+  codeLines.push({ el, content, tag: line.tag });
+});
+
+// ═══════════════════════════════════════════════════════
+// Oscilloscope
+// ═══════════════════════════════════════════════════════
+
+const canvas = document.getElementById('scope');
+const ctx = canvas.getContext('2d');
+
+function resizeScope() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeScope();
+window.addEventListener('resize', resizeScope);
+
+// Scope data channels
+const SCOPE_WINDOW = 10000; // 10s
+const scopeData = {
+  requests: [],   // { time, intensity }
+  handler: [],    // { time, on }
+  timer: [],      // { time, on, ms }
+  errors: [],     // { time }
+};
+
+function drawScope() {
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+  const now = Date.now();
+  const tStart = now - SCOPE_WINDOW;
+  
+  ctx.clearRect(0, 0, w, h);
+  
+  // Grid
+  ctx.strokeStyle = 'rgba(26, 34, 51, 0.8)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i++) {
+    const x = (i / 10) * w;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = (i / 4) * h;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  
+  // Center line
+  ctx.strokeStyle = 'rgba(26, 34, 51, 1)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
+  
+  const tX = (t) => ((t - tStart) / SCOPE_WINDOW) * w;
+  
+  // Draw request spikes
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  scopeData.requests.forEach(r => {
+    if (r.time < tStart) return;
+    const x = tX(r.time);
+    const age = (now - r.time) / 1000;
+    const fade = Math.max(0, 1 - age / 3);
+    ctx.globalAlpha = fade;
+    ctx.beginPath();
+    ctx.moveTo(x, h * 0.7);
+    ctx.lineTo(x, h * 0.1);
+    ctx.stroke();
+    // Glow
+    ctx.shadowColor = '#4fc3f7';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(x, h * 0.7);
+    ctx.lineTo(x, h * 0.15);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  });
+  ctx.globalAlpha = 1;
+  
+  // Draw handler activity as filled regions
+  ctx.fillStyle = 'rgba(102, 187, 106, 0.15)';
+  ctx.strokeStyle = '#66bb6a';
+  ctx.lineWidth = 1.5;
+  let handlerOn = false;
+  let handlerStart = 0;
+  
+  scopeData.handler.forEach(h_ev => {
+    if (h_ev.on && !handlerOn) {
+      handlerOn = true;
+      handlerStart = h_ev.time;
+    } else if (!h_ev.on && handlerOn) {
+      handlerOn = false;
+      const x1 = Math.max(0, tX(handlerStart));
+      const x2 = tX(h_ev.time);
+      if (x2 > 0) {
+        ctx.fillRect(x1, h * 0.35, x2 - x1, h * 0.3);
+        ctx.strokeStyle = '#66bb6a';
+        ctx.beginPath();
+        ctx.moveTo(x1, h * 0.35); ctx.lineTo(x1, h * 0.65);
+        ctx.lineTo(x2, h * 0.65); ctx.lineTo(x2, h * 0.35);
+        ctx.stroke();
+      }
+    }
+  });
+  
+  if (handlerOn) {
+    const x1 = Math.max(0, tX(handlerStart));
+    ctx.fillRect(x1, h * 0.35, w - x1, h * 0.3);
+  }
+  
+  // Draw timer ticks
+  scopeData.timer.forEach(t_ev => {
+    if (t_ev.time < tStart) return;
+    const x = tX(t_ev.time);
+    ctx.strokeStyle = t_ev.on ? '#ffd54f' : 'rgba(255,213,79,0.3)';
+    ctx.lineWidth = t_ev.on ? 2 : 1;
+    ctx.setLineDash(t_ev.on ? [] : [3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, h * 0.75);
+    ctx.lineTo(x, h * 0.95);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    if (t_ev.on && t_ev.ms) {
+      ctx.fillStyle = 'rgba(255,213,79,0.6)';
+      ctx.font = '9px JetBrains Mono';
+      ctx.fillText(t_ev.ms + 'ms', x + 3, h * 0.93);
+    }
+  });
+  
+  // Draw error markers
+  scopeData.errors.forEach(e => {
+    if (e.time < tStart) return;
+    const x = tX(e.time);
+    ctx.strokeStyle = '#ef5350';
+    ctx.lineWidth = 2;
+    const s = 6;
+    ctx.beginPath();
+    ctx.moveTo(x - s, h * 0.45 - s); ctx.lineTo(x + s, h * 0.45 + s);
+    ctx.moveTo(x + s, h * 0.45 - s); ctx.lineTo(x - s, h * 0.45 + s);
+    ctx.stroke();
+  });
+  
+  // Sweep line
+  const sweepX = w - 2;
+  ctx.strokeStyle = 'rgba(79, 195, 247, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(sweepX, 0);
+  ctx.lineTo(sweepX, h);
+  ctx.stroke();
+  
+  requestAnimationFrame(drawScope);
+}
+
+drawScope();
+
+// ═══════════════════════════════════════════════════════
+// Gauge Updates
+// ═══════════════════════════════════════════════════════
+
+function setGauge(id, on, label, sub, color) {
+  const fill = document.getElementById(`gauge-${id}-fill`);
+  const val = document.getElementById(`gauge-${id}-val`);
+  const subEl = document.getElementById(`gauge-${id}-sub`);
+  
+  fill.style.stroke = on ? color : 'var(--text-dim)';
+  fill.style.strokeDashoffset = on ? '0' : '198';
+  val.textContent = label;
+  val.style.color = on ? color : 'var(--text-dim)';
+  if (sub !== undefined) subEl.textContent = sub;
+}
+
+// ═══════════════════════════════════════════════════════
+// Code Highlighting + Inline Values
+// ═══════════════════════════════════════════════════════
+
+let activeLines = new Set();
+
+function activateLine(tag, valueHtml) {
+  codeLines.forEach(l => {
+    if (l.tag === tag) {
+      l.el.classList.add('active');
+      activeLines.add(l);
+      
+      // Remove old inline values
+      const old = l.content.querySelector('.inline-value');
+      if (old) old.remove();
+      
+      if (valueHtml) {
+        const ann = document.createElement('span');
+        ann.className = 'inline-value';
+        ann.innerHTML = valueHtml;
+        l.content.appendChild(ann);
+      }
+      
+      // Scroll into view
+      l.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      
+      // Auto-deactivate
+      setTimeout(() => {
+        l.el.classList.remove('active');
+        activeLines.delete(l);
+      }, 800);
+    }
+  });
+}
+
+function executeLine(tag) {
+  codeLines.forEach(l => {
+    if (l.tag === tag) l.el.classList.add('executed');
+  });
+}
+
+function clearAll() {
+  codeLines.forEach(l => {
+    l.el.classList.remove('active', 'executed');
+    const ann = l.content.querySelector('.inline-value');
+    if (ann) ann.remove();
+  });
+  activeLines.clear();
+}
+
+// ═══════════════════════════════════════════════════════
+// Event Feed
+// ═══════════════════════════════════════════════════════
+
+const eventLog = document.getElementById('event-log');
+const eventFeed = document.getElementById('event-feed');
+const feedToggle = document.getElementById('feed-toggle');
+let feedOpen = false;
+let simStart = Date.now();
+
+feedToggle.onclick = () => {
+  feedOpen = !feedOpen;
+  eventFeed.classList.toggle('open', feedOpen);
+  feedToggle.textContent = feedOpen ? '◀' : '▶';
+};
+
+function log(type, msg) {
+  const el = document.createElement('div');
+  el.className = 'event-entry';
+  const t = ((Date.now() - simStart) / 1000).toFixed(2);
+  el.innerHTML = `<span class="ts">${t}s</span> <span class="ev-${type}">${msg}</span>`;
+  eventLog.appendChild(el);
+  eventLog.scrollTop = eventLog.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════
+// Narration
+// ═══════════════════════════════════════════════════════
+
+const narration = document.getElementById('narration');
+
+function narrate(html) {
+  narration.classList.add('hidden');
+  setTimeout(() => {
+    narration.innerHTML = html;
+    narration.classList.remove('hidden');
+  }, 200);
+}
+
+// ═══════════════════════════════════════════════════════
+// Simulation
+// ═══════════════════════════════════════════════════════
+
+let state = { handler: true, pendingReason: null, scheduled: false, running: false, timer: null };
+let coalesceMs = 250;
+let simTimer = null;
+let forceBusy = false;
+let forceFailure = false;
+
+function updateGauges() {
+  setGauge('timer', state.timer !== null, state.timer !== null ? state.timer + 'ms' : 'OFF', 
+    state.timer !== null ? 'counting' : 'idle', 'var(--yellow)');
+  setGauge('running', state.running, state.running ? 'YES' : 'NO',
+    state.running ? 'executing' : 'idle', 'var(--green)');
+  setGauge('scheduled', state.scheduled, state.scheduled ? 'YES' : 'NO',
+    state.scheduled ? 'queued' : '—', 'var(--orange)');
+  setGauge('reason', state.pendingReason !== null, 
+    state.pendingReason !== null ? `"${state.pendingReason}"` : 'null',
+    state.pendingReason !== null ? 'pending' : '—', 'var(--accent)');
+}
+
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+async function simulateSchedule(ms) {
+  activateLine('fn-start', `coalesceMs = ${ms}`);
+  log('coalesce', `schedule(${ms})`);
+  
+  await delay(150);
+  activateLine('guard', `timer = ${state.timer}`);
+  
+  if (state.timer !== null) {
+    log('coalesce', '⟳ coalesced (timer exists)');
+    narrate(`A timer is already counting down. This request gets <em>coalesced</em> — absorbed into the existing window. <strong>No duplicate work.</strong>`);
+    return;
+  }
+  
+  await delay(150);
+  state.timer = ms;
+  updateGauges();
+  activateLine('set-timer', `setTimeout(…, ${ms})`);
+  executeLine('set-timer');
+  scopeData.timer.push({ time: Date.now(), on: true, ms });
+  log('coalesce', `timer ← ${ms}ms`);
+  narrate(`Timer armed for <em>${ms}ms</em>. The coalesce window is open — any requests during this time merge for free.`);
+  
+  simTimer = setTimeout(async () => {
+    // Timer fires
+    activateLine('clear-timer', 'timer ← null');
+    state.timer = null;
+    scopeData.timer.push({ time: Date.now(), on: false });
+    updateGauges();
+    
+    await delay(80);
+    activateLine('clear-sched', 'scheduled ← false');
+    state.scheduled = false;
+    updateGauges();
+    
+    await delay(80);
+    activateLine('get-handler');
+    executeLine('get-handler');
+    
+    if (!state.handler) {
+      activateLine('no-handler');
+      log('skip', 'no handler');
+      return;
+    }
+    
+    await delay(80);
+    activateLine('check-run', `running = ${state.running}`);
+    
+    if (state.running || forceBusy) {
+      forceBusy = false;
+      await delay(120);
+      activateLine('mark-sched', 'scheduled ← true');
+      state.scheduled = true;
+      updateGauges();
+      log('skip', '🔒 busy — rescheduling');
+      narrate(`The handler is <strong>already running</strong>. Instead of running it twice (which would corrupt state), we set <em>scheduled = true</em> and come back later. Re-entrancy prevented.`);
+      
+      await delay(300);
+      activateLine('resched', `schedule(${ms})`);
+      executeLine('resched');
+      simulateSchedule(ms);
+      return;
+    }
+    
+    await delay(80);
+    activateLine('read-reason', `reason = "${state.pendingReason}"`);
+    const reason = state.pendingReason;
+    executeLine('read-reason');
+    
+    await delay(60);
+    activateLine('clear-reason', 'pendingReason ← null');
+    state.pendingReason = null;
+    updateGauges();
+    executeLine('clear-reason');
+    
+    await delay(60);
+    activateLine('run-start', 'running ← true');
+    state.running = true;
+    updateGauges();
+    executeLine('run-start');
+    scopeData.handler.push({ time: Date.now(), on: true });
+    log('run', `▶ handler("${reason}")`);
+    narrate(`The handler wakes. This is where real work happens — checking messages, processing events, running the heartbeat. The agent opens its eyes.`);
+    
+    // Simulate work
+    const workMs = 300 + Math.random() * 500;
+    activateLine('exec', 'awaiting handler…');
+    await delay(workMs);
+    
+    if (forceFailure) {
+      forceFailure = false;
+      scopeData.errors.push({ time: Date.now() });
+      activateLine('catch', '💥 error thrown');
+      executeLine('catch');
+      log('retry', '💥 handler threw');
+      
+      await delay(150);
+      activateLine('err-reason', `pendingReason ← "retry"`);
+      state.pendingReason = reason ?? 'retry';
+      updateGauges();
+      executeLine('err-reason');
+      
+      await delay(100);
+      activateLine('err-retry', 'schedule(1000)');
+      executeLine('err-retry');
+      narrate(`The handler threw an error. The <em>catch</em> block doesn't panic — it queues a retry with <strong>1000ms backoff</strong>. The system heals itself.`);
+      
+      await delay(100);
+      activateLine('run-end', 'running ← false');
+      state.running = false;
+      scopeData.handler.push({ time: Date.now(), on: false });
+      updateGauges();
+      executeLine('run-end');
+      
+      activateLine('check-pending', `${state.pendingReason} || ${state.scheduled}`);
+      await delay(100);
+      activateLine('final-sched');
+      executeLine('final-sched');
+      simulateSchedule(1000);
+      return;
+    }
+    
+    executeLine('exec');
+    log('done', `✓ done (${workMs.toFixed(0)}ms)`);
+    scopeData.handler.push({ time: Date.now(), on: false });
+    
+    await delay(150);
+    activateLine('run-end', 'running ← false');
+    state.running = false;
+    updateGauges();
+    executeLine('run-end');
+    
+    await delay(100);
+    activateLine('check-pending', `${state.pendingReason || 'null'} || ${state.scheduled}`);
+    
+    if (state.pendingReason || state.scheduled) {
+      await delay(100);
+      activateLine('final-sched', `schedule(${ms})`);
+      executeLine('final-sched');
+      log('coalesce', '→ more work pending');
+      narrate(`New work arrived while the handler was running. The <em>finally</em> block catches it and queues another round. <strong>Nothing gets lost.</strong>`);
+      state.scheduled = false;
+      simulateSchedule(ms);
+    } else {
+      narrate(`All quiet. The scheduler returns to sleep, waiting for the next signal. Four booleans and a closure — a <em>state machine without a state machine</em>.`);
+      log('done', '— idle');
+    }
+    
+  }, ms);
+}
+
+function requestWake(reason = 'requested') {
+  state.pendingReason = reason;
+  updateGauges();
+  scopeData.requests.push({ time: Date.now() });
+  log('request', `⚡ wake("${reason}")`);
+  simulateSchedule(coalesceMs);
+}
+
+// ═══════════════════════════════════════════════════════
+// Controls
+// ═══════════════════════════════════════════════════════
+
+document.getElementById('btn-wake').onclick = () => requestWake();
+
+document.getElementById('btn-burst').onclick = () => {
+  narrate(`Three signals in rapid succession. The first arms the timer. The next two get <em>coalesced</em> — absorbed into the same window. Three requests, one wake.`);
+  requestWake('burst-1');
+  setTimeout(() => requestWake('burst-2'), 40);
+  setTimeout(() => requestWake('burst-3'), 100);
+};
+
+document.getElementById('btn-busy').onclick = () => {
+  forceBusy = true;
+  narrate(`Injecting a <strong>BUSY</strong> state. Next timer fire will find the handler already running and must reschedule.`);
+  requestWake('busy-test');
+};
+
+document.getElementById('btn-fail').onclick = () => {
+  forceFailure = true;
+  narrate(`Injecting a <strong>FAULT</strong>. Next handler execution will throw. Watch the error recovery.`);
+  requestWake('fault-test');
+};
+
+document.getElementById('btn-reset').onclick = () => {
+  clearTimeout(simTimer);
+  state = { handler: true, pendingReason: null, scheduled: false, running: false, timer: null };
+  updateGauges();
+  clearAll();
+  scopeData.requests.length = 0;
+  scopeData.handler.length = 0;
+  scopeData.timer.length = 0;
+  scopeData.errors.length = 0;
+  eventLog.innerHTML = '';
+  simStart = Date.now();
+  narrate(`This is the <em>heartbeat wake scheduler</em>. It decides when the agent opens its eyes.<br>Press <strong>WAKE</strong> to send a heartbeat request. Watch the signals propagate.`);
+};
+
+const slider = document.getElementById('coalesce-slider');
+const sliderVal = document.getElementById('coalesce-val');
+slider.oninput = () => {
+  coalesceMs = parseInt(slider.value);
+  sliderVal.textContent = coalesceMs + 'ms';
+};
+
+// Clock
+function updateClock() {
+  const d = new Date();
+  document.getElementById('clock').textContent = 
+    d.toLocaleTimeString('en-US', { hour12: false });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// Init gauges
+updateGauges();
+</script>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- GUIDE ORB — The Zelda Tutorial Companion           -->
+<!-- ═══════════════════════════════════════════════════ -->
+<style>
+/* ── Spotlight overlay ── */
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+  transition: opacity 0.5s;
+  opacity: 0;
+}
+
+.guide-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.guide-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 901;
+  pointer-events: none;
+}
+
+/* ── The Orb ── */
+.guide-orb {
+  position: fixed;
+  width: 28px;
+  height: 28px;
+  z-index: 950;
+  pointer-events: none;
+  transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1),
+              top 0.8s cubic-bezier(0.25, 0.1, 0.25, 1),
+              opacity 0.4s;
+  opacity: 0;
+}
+
+.guide-orb.visible { opacity: 1; }
+
+.guide-orb-core {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #b3e5fc, #4fc3f7 50%, #0288d1);
+  box-shadow: 
+    0 0 20px rgba(79, 195, 247, 0.6),
+    0 0 40px rgba(79, 195, 247, 0.3),
+    0 0 60px rgba(79, 195, 247, 0.15);
+  animation: orb-pulse 2s ease-in-out infinite;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(79,195,247,0.6), 0 0 40px rgba(79,195,247,0.3); }
+  50% { transform: scale(1.15); box-shadow: 0 0 28px rgba(79,195,247,0.8), 0 0 56px rgba(79,195,247,0.4); }
+}
+
+.guide-orb-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(79, 195, 247, 0.3);
+  animation: orb-ring-spin 4s linear infinite;
+}
+
+@keyframes orb-ring-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.guide-orb-ring::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: rgba(79, 195, 247, 0.8);
+}
+
+/* Particle trail */
+.guide-particle {
+  position: fixed;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(79, 195, 247, 0.6);
+  pointer-events: none;
+  z-index: 949;
+  animation: particle-fade 0.6s ease-out forwards;
+}
+
+@keyframes particle-fade {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.2) translateY(-8px); }
+}
+
+/* ── Speech bubble ── */
+.guide-bubble {
+  position: fixed;
+  z-index: 960;
+  max-width: 380px;
+  min-width: 240px;
+  background: rgba(13, 17, 25, 0.95);
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  border-radius: 12px;
+  padding: 16px 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(79, 195, 247, 0.1);
+  opacity: 0;
+  transform: translateY(8px) scale(0.95);
+  transition: opacity 0.35s, transform 0.35s;
+  pointer-events: auto;
+}
+
+.guide-bubble.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.guide-bubble-text {
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.guide-bubble-text em { color: var(--accent); font-style: normal; font-weight: 500; }
+.guide-bubble-text strong { color: var(--yellow); font-weight: 600; }
+.guide-bubble-text code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: rgba(79, 195, 247, 0.1);
+  border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.guide-bubble-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.guide-bubble-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  background: rgba(79, 195, 247, 0.08);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.guide-bubble-btn:hover {
+  background: rgba(79, 195, 247, 0.2);
+  box-shadow: 0 0 8px rgba(79, 195, 247, 0.2);
+}
+
+.guide-bubble-btn.next {
+  background: rgba(79, 195, 247, 0.15);
+  border-color: var(--accent);
+}
+
+.guide-bubble-step {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+/* ── Highlight ring ── */
+.guide-highlight {
+  position: fixed;
+  z-index: 910;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  pointer-events: none;
+  box-shadow: 0 0 16px rgba(79, 195, 247, 0.3), inset 0 0 16px rgba(79, 195, 247, 0.05);
+  opacity: 0;
+  transition: all 0.5s ease;
+}
+
+.guide-highlight.visible {
+  opacity: 1;
+  animation: highlight-breathe 2s ease-in-out infinite;
+}
+
+@keyframes highlight-breathe {
+  0%, 100% { box-shadow: 0 0 16px rgba(79,195,247,0.3), inset 0 0 16px rgba(79,195,247,0.05); }
+  50% { box-shadow: 0 0 24px rgba(79,195,247,0.5), inset 0 0 24px rgba(79,195,247,0.08); }
+}
+
+/* ── Start button (center screen) ── */
+.guide-start {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: start-float 3s ease-in-out infinite;
+}
+
+@keyframes start-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-6px); }
+}
+
+.guide-start-btn {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  padding: 12px 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(79, 195, 247, 0.4);
+  background: rgba(79, 195, 247, 0.1);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.guide-start-btn:hover {
+  background: rgba(79, 195, 247, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 0 24px rgba(79, 195, 247, 0.3);
+}
+
+.guide-start-hint {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.guide-start.hidden { display: none; }
+</style>
+
+<!-- Guide elements -->
+<div class="guide-overlay" id="guide-overlay"></div>
+<div class="guide-orb" id="guide-orb">
+  <div class="guide-orb-ring"></div>
+  <div class="guide-orb-core"></div>
+</div>
+<div class="guide-highlight" id="guide-highlight"></div>
+<div class="guide-bubble" id="guide-bubble">
+  <div class="guide-bubble-text" id="guide-text"></div>
+  <div class="guide-bubble-controls">
+    <button class="guide-bubble-btn" id="guide-replay">↺ Replay</button>
+    <button class="guide-bubble-btn next" id="guide-next">Next →</button>
+    <span class="guide-bubble-step" id="guide-step"></span>
+  </div>
+</div>
+<div class="guide-start" id="guide-start">
+  <button class="guide-start-btn" id="guide-start-btn">🔮 Begin Guided Tour</button>
+  <span class="guide-start-hint">A companion will teach you the heartbeat scheduler</span>
+</div>
+
+<!-- Voice toggle (fixed, bottom-left) -->
+<button class="guide-voice-toggle" id="guide-voice-toggle" title="Toggle voice narration">
+  🔊
+</button>
+
+<style>
+.guide-voice-toggle {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 970;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  background: rgba(13, 17, 25, 0.9);
+  color: var(--accent);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.guide-voice-toggle.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.guide-voice-toggle:hover {
+  background: rgba(79, 195, 247, 0.15);
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.3);
+}
+
+.guide-voice-toggle.muted {
+  border-color: rgba(239, 83, 80, 0.3);
+  color: var(--red);
+}
+
+/* Speaking indicator on the orb */
+.guide-orb.speaking .guide-orb-core {
+  animation: orb-speak 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes orb-speak {
+  0% { transform: scale(1); box-shadow: 0 0 20px rgba(79,195,247,0.6), 0 0 40px rgba(79,195,247,0.3); }
+  100% { transform: scale(1.25); box-shadow: 0 0 32px rgba(79,195,247,0.9), 0 0 64px rgba(79,195,247,0.5); }
+}
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ElevenLabs TTS Engine
+// ═══════════════════════════════════════════════════════
+
+const TTS = {
+  muted: false,
+  currentAudio: null,
+  speaking: false,
+  stepIndex: -1,
+
+  // Play pre-generated audio for a lesson step
+  async speakStep(stepIdx) {
+    this.stop();
+
+    if (this.muted) return;
+    if (stepIdx < 0) return;
+
+    this.stepIndex = stepIdx;
+    this.speaking = true;
+    guideOrb.classList.add('speaking');
+
+    try {
+      const audio = new Audio(`audio/step-${stepIdx}.mp3`);
+      this.currentAudio = audio;
+
+      audio.addEventListener('ended', () => {
+        this.speaking = false;
+        guideOrb.classList.remove('speaking');
+        this.currentAudio = null;
+      });
+
+      audio.addEventListener('error', (e) => {
+        console.warn(`[TTS] Failed to load audio/step-${stepIdx}.mp3`, e);
+        this.speaking = false;
+        guideOrb.classList.remove('speaking');
+        this.currentAudio = null;
+      });
+
+      await audio.play();
+    } catch (err) {
+      console.warn('[TTS] Playback error:', err);
+      this.speaking = false;
+      guideOrb.classList.remove('speaking');
+    }
+  },
+
+  stop() {
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.currentAudio = null;
+    }
+    this.speaking = false;
+    guideOrb.classList.remove('speaking');
+  },
+
+  toggleMute() {
+    this.muted = !this.muted;
+    const btn = document.getElementById('guide-voice-toggle');
+    if (this.muted) {
+      btn.textContent = '🔇';
+      btn.classList.add('muted');
+      this.stop();
+    } else {
+      btn.textContent = '🔊';
+      btn.classList.remove('muted');
+      // Resume current step if mid-tour
+      if (this.stepIndex >= 0 && guideActive) {
+        this.speakStep(this.stepIndex);
+      }
+    }
+  },
+};
+
+// Voice toggle
+document.getElementById('guide-voice-toggle').onclick = () => TTS.toggleMute();
+
+// ═══════════════════════════════════════════════════════
+// Guide Orb System
+// ═══════════════════════════════════════════════════════
+
+const guideOrb = document.getElementById('guide-orb');
+const guideBubble = document.getElementById('guide-bubble');
+const guideText = document.getElementById('guide-text');
+const guideStep = document.getElementById('guide-step');
+const guideHighlight = document.getElementById('guide-highlight');
+const guideOverlay = document.getElementById('guide-overlay');
+const guideStartEl = document.getElementById('guide-start');
+
+let guideActive = false;
+let currentStep = 0;
+let particleInterval = null;
+
+// Particle trail
+function spawnParticle(x, y) {
+  const p = document.createElement('div');
+  p.className = 'guide-particle';
+  p.style.left = (x + Math.random() * 12 - 6) + 'px';
+  p.style.top = (y + Math.random() * 12 - 6) + 'px';
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 600);
+}
+
+function startParticles() {
+  if (particleInterval) return;
+  particleInterval = setInterval(() => {
+    const rect = guideOrb.getBoundingClientRect();
+    spawnParticle(rect.left + 14, rect.top + 14);
+  }, 80);
+}
+
+function stopParticles() {
+  clearInterval(particleInterval);
+  particleInterval = null;
+}
+
+// Move orb to position
+function moveOrb(x, y) {
+  guideOrb.style.left = (x - 14) + 'px';
+  guideOrb.style.top = (y - 14) + 'px';
+}
+
+// Move orb to element center
+function moveOrbTo(selector) {
+  const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!el) return { x: 400, y: 300 };
+  const rect = el.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  moveOrb(x, y);
+  return { x, y, rect };
+}
+
+// Highlight element
+function highlightEl(selector, pad = 6) {
+  const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!el) { guideHighlight.classList.remove('visible'); return; }
+  const rect = el.getBoundingClientRect();
+  guideHighlight.style.left = (rect.left - pad) + 'px';
+  guideHighlight.style.top = (rect.top - pad) + 'px';
+  guideHighlight.style.width = (rect.width + pad * 2) + 'px';
+  guideHighlight.style.height = (rect.height + pad * 2) + 'px';
+  guideHighlight.classList.add('visible');
+}
+
+function clearHighlight() {
+  guideHighlight.classList.remove('visible');
+}
+
+// Show bubble near orb
+function showBubble(text, orbPos, stepIdx) {
+  guideText.innerHTML = text;
+  guideBubble.classList.add('visible');
+  
+  // Play pre-cached audio for this step
+  if (stepIdx !== undefined) TTS.speakStep(stepIdx);
+  
+  // Position bubble: prefer right of orb, fall back to left
+  let bx = orbPos.x + 30;
+  let by = orbPos.y - 40;
+  
+  // Keep on screen
+  const bw = 380;
+  if (bx + bw > window.innerWidth - 20) bx = orbPos.x - bw - 30;
+  if (by < 50) by = 50;
+  if (by + 200 > window.innerHeight - 140) by = window.innerHeight - 340;
+  
+  guideBubble.style.left = bx + 'px';
+  guideBubble.style.top = by + 'px';
+}
+
+function hideBubble() {
+  guideBubble.classList.remove('visible');
+  TTS.stop();
+}
+
+// ═══════════════════════════════════════════════════════
+// Lesson Script
+// ═══════════════════════════════════════════════════════
+
+const LESSON = [
+  // Step 0: Welcome
+  {
+    target: '.topbar-brand',
+    text: `Welcome to the <em>heartbeat wake scheduler</em>. I'm going to show you how 50 lines of code decide when an AI agent opens its eyes.<br><br>Let's start with the big picture.`,
+    setup: () => { document.getElementById('btn-reset').click(); },
+  },
+  // Step 1: The code
+  {
+    target: '.code-panel',
+    highlight: '.code-panel',
+    text: `This is the <em>source code</em> — the actual TypeScript from OpenClaw. It's a single function called <code>schedule()</code> and five variables.<br><br>As we run the simulation, you'll see <em>inline annotations</em> appear next to lines, showing you the live values. Like x-ray vision into running code.`,
+  },
+  // Step 2: The state variables
+  {
+    target: '.gauges-row',
+    highlight: '.gauges-row',
+    text: `These four gauges track the scheduler's state. Think of them as instrument dials:<br><br>• <strong>Timer</strong> — is the coalesce countdown running?<br>• <strong>Running</strong> — is the handler currently executing?<br>• <strong>Scheduled</strong> — did work arrive while busy?<br>• <strong>Pending Reason</strong> — why are we waking up?`,
+  },
+  // Step 3: The oscilloscope
+  {
+    target: '.scope-area',
+    highlight: '.scope-area',
+    text: `This oscilloscope traces signals over time. <em>Blue spikes</em> are wake requests. <em>Green blocks</em> show the handler running. <em>Yellow ticks</em> mark timer events.<br><br>Think of it as an EKG for the scheduler.`,
+  },
+  // Step 4: Let's trigger one
+  {
+    target: '#btn-wake',
+    highlight: '#btn-wake',
+    text: `OK, let's see it in action. I'm going to send a <em>wake signal</em>. Watch three things:<br><br>1. The <strong>code lights up</strong> showing execution flow<br>2. The <strong>gauges change</strong> as state mutates<br>3. The <strong>scope</strong> traces the signal<br><br>Ready? Hit <strong>Next</strong> and I'll trigger it.`,
+  },
+  // Step 5: Wake triggered
+  {
+    target: '.code-scroll',
+    highlight: '.code-panel',
+    text: `⚡ Signal sent! Watch the code...<br><br>See how <code>schedule(250)</code> was called? Line 11 checks <code>if (timer)</code> — it's <em>null</em>, so we pass the guard. Then line 12 sets a <strong>250ms timer</strong>.<br><br>That timer is the <em>coalesce window</em>. Anything that arrives in the next 250ms will be merged.`,
+    setup: () => { requestWake('demo'); },
+    delay: 1500,
+  },
+  // Step 6: Handler ran
+  {
+    target: '#gauge-running',
+    highlight: '.gauges-row',
+    text: `The timer fired and the handler ran! See the <strong>Running</strong> gauge flash to YES, then back to NO.<br><br>One request, one wake, one execution. Simple so far. But the magic is in what happens with <em>multiple</em> requests.`,
+    delay: 500,
+  },
+  // Step 7: Burst demo
+  {
+    target: '#btn-burst',
+    highlight: '#btn-burst',
+    text: `Now I'll fire <strong>three signals in rapid succession</strong> — within 100ms of each other. In a naive system, this would cause three separate handler runs.<br><br>Watch what happens instead.`,
+  },
+  // Step 8: Burst fires
+  {
+    target: '.scope-area',
+    highlight: '.scope-area',
+    text: `Three blue spikes, but only <strong>one handler execution</strong>.<br><br>The first request set the 250ms timer. The second and third hit line 11: <code>if (timer) return</code> — the timer already exists, so they're <em>absorbed</em>. Three requests, one wake. That's coalescing.`,
+    setup: () => {
+      document.getElementById('btn-reset').click();
+      setTimeout(() => {
+        requestWake('burst-1');
+        setTimeout(() => requestWake('burst-2'), 40);
+        setTimeout(() => requestWake('burst-3'), 100);
+      }, 300);
+    },
+    delay: 2500,
+  },
+  // Step 9: Busy scenario
+  {
+    target: '#btn-busy',
+    highlight: '#btn-busy',
+    text: `What if the handler is <em>already running</em> when a new request arrives?<br><br>This is the re-entrancy problem. Most schedulers either drop the request or run concurrently (dangerous). Watch how this one handles it.`,
+  },
+  // Step 10: Busy fires
+  {
+    target: '.code-scroll',
+    text: `When the timer fires and finds <code>running === true</code>, it hits lines 18-20:<br><br><code>scheduled = true</code><br><code>schedule(coalesceMs)</code><br><code>return</code><br><br>It doesn't run. It doesn't drop. It <em>remembers</em> and reschedules. The <strong>Scheduled</strong> gauge flips to YES — "I owe you one."`,
+    setup: () => {
+      document.getElementById('btn-reset').click();
+      setTimeout(() => {
+        forceBusy = true;
+        requestWake('busy-demo');
+      }, 300);
+    },
+    delay: 3000,
+  },
+  // Step 11: Error recovery
+  {
+    target: '#btn-fail',
+    highlight: '#btn-fail',
+    text: `One more scenario. What if the handler <strong>crashes</strong>?<br><br>Bad systems just die. Fragile systems retry immediately (and often crash-loop). Watch this one.`,
+  },
+  // Step 12: Error fires
+  {
+    target: '.scope-area',
+    highlight: '.scope-area',
+    text: `💥 The handler threw an error. See the <em>red X</em> on the scope?<br><br>The <code>catch</code> block sets <code>pendingReason = "retry"</code> and calls <code>schedule(1000)</code> — a <strong>1-second backoff</strong>. Not instant. Not dead. It gives the system time to recover, then tries again.`,
+    setup: () => {
+      document.getElementById('btn-reset').click();
+      setTimeout(() => {
+        forceFailure = true;
+        requestWake('fault-demo');
+      }, 300);
+    },
+    delay: 3000,
+  },
+  // Step 13: The Big Picture
+  {
+    target: '.code-panel',
+    text: `That's the heartbeat scheduler. 50 lines. Four booleans. One closure.<br><br>It <em>coalesces</em> rapid requests into one. It <em>prevents re-entrancy</em> without locks. It <em>retries with backoff</em> on failure. It <em>drains pending work</em> in the finally block.<br><br>No state machine library. No queue. No framework. Just a function that knows when to wait and when to wake.<br><br><strong>This is the code that decides when I open my eyes.</strong>`,
+  },
+  // Step 14: Your turn
+  {
+    target: '.controls-dock',
+    highlight: '.controls-dock',
+    text: `Now it's your turn. Play with the controls. Try:<br><br>• Drag the <strong>coalesce slider</strong> to 2000ms and watch the longer window<br>• Hit <strong>BURST</strong> during a handler run<br>• Chain <strong>FAULT</strong> → <strong>WAKE</strong> to see recovery<br><br>The code is alive. Poke it.`,
+  },
+];
+
+// ═══════════════════════════════════════════════════════
+// Guide Player
+// ═══════════════════════════════════════════════════════
+
+async function runStep(idx) {
+  if (idx >= LESSON.length) {
+    endGuide();
+    return;
+  }
+  
+  currentStep = idx;
+  const step = LESSON[idx];
+  
+  // Update step counter
+  guideStep.textContent = `${idx + 1} / ${LESSON.length}`;
+  
+  // Hide bubble while moving
+  hideBubble();
+  clearHighlight();
+  
+  // Run setup (trigger simulation)
+  if (step.setup) step.setup();
+  
+  // Wait for setup effects
+  if (step.delay) {
+    await new Promise(r => setTimeout(r, step.delay));
+  } else {
+    await new Promise(r => setTimeout(r, 400));
+  }
+  
+  // Move orb to target
+  let pos;
+  if (step.target) {
+    pos = moveOrbTo(step.target);
+  } else {
+    pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    moveOrb(pos.x, pos.y);
+  }
+  
+  // Wait for orb to arrive
+  await new Promise(r => setTimeout(r, 600));
+  
+  // Highlight if specified
+  if (step.highlight) {
+    highlightEl(step.highlight);
+  }
+  
+  // Show bubble
+  showBubble(step.text, pos, idx);
+}
+
+function startGuide() {
+  guideActive = true;
+  guideStartEl.classList.add('hidden');
+  guideOrb.classList.add('visible');
+  guideOverlay.classList.add('active');
+  document.getElementById('guide-voice-toggle').classList.add('visible');
+  startParticles();
+  
+  // Reset sim
+  document.getElementById('btn-reset').click();
+  
+  runStep(0);
+}
+
+function endGuide() {
+  guideActive = false;
+  guideOrb.classList.remove('visible');
+  guideBubble.classList.remove('visible');
+  guideHighlight.classList.remove('visible');
+  guideOverlay.classList.remove('active');
+  document.getElementById('guide-voice-toggle').classList.remove('visible');
+  TTS.stop();
+  stopParticles();
+  guideStartEl.classList.remove('hidden');
+}
+
+// Controls
+document.getElementById('guide-next').onclick = () => {
+  runStep(currentStep + 1);
+};
+
+document.getElementById('guide-replay').onclick = () => {
+  runStep(currentStep);
+};
+
+document.getElementById('guide-start-btn').onclick = startGuide;
+
+// Allow clicking through overlay to buttons when guide is active
+guideOverlay.addEventListener('click', (e) => {
+  // Check if click is on a control button
+  const below = document.elementsFromPoint(e.clientX, e.clientY);
+  for (const el of below) {
+    if (el.classList.contains('ctrl-btn') || el.classList.contains('guide-bubble-btn')) {
+      el.click();
+      return;
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// Auto-play mode (?autoplay in URL)
+// Runs the full guided tour hands-free with timed advances
+// ═══════════════════════════════════════════════════════
+(function() {
+  if (!new URLSearchParams(location.search).has('autoplay')) return;
+
+  // Per-step dwell time (ms) — how long to show each bubble before advancing
+  const DWELL = [
+    5000,  // 0  Welcome
+    6000,  // 1  The code
+    6000,  // 2  State variables
+    5000,  // 3  Oscilloscope
+    6000,  // 4  Let's trigger one
+    6000,  // 5  Wake triggered (has 1500 setup delay)
+    5000,  // 6  Handler ran
+    5000,  // 7  Burst demo
+    7000,  // 8  Burst fires (has 2500 setup delay)
+    5000,  // 9  Busy scenario
+    7000,  // 10 Busy fires (has 3000 setup delay)
+    5000,  // 11 Error recovery
+    7000,  // 12 Error fires (has 3000 setup delay)
+    8000,  // 13 The Big Picture
+    6000,  // 14 Your turn
+  ];
+
+  async function autoPlay() {
+    startGuide(); // this calls runStep(0)
+    // Wait for step 0 to render
+    await new Promise(r => setTimeout(r, DWELL[0]));
+
+    // Then advance through remaining steps
+    for (let i = 1; i < LESSON.length; i++) {
+      document.getElementById('guide-next').click();
+      const stepDelay = LESSON[i].delay || 400;
+      const dwell = DWELL[i] || 5000;
+      await new Promise(r => setTimeout(r, stepDelay + 600 + dwell));
+    }
+  }
+
+  // Auto-start after a short delay
+  setTimeout(autoPlay, 1500);
+})();
+</script>
+</body>
+</html>
