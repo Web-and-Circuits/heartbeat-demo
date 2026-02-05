@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=0.5, minimum-scale=0.3, maximum-scale=1.0, user-scalable=yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=2.0, user-scalable=yes">
 <title>OPENCLAW // SYSTEMS MONITOR</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;700&display=swap');
@@ -642,6 +642,124 @@ body::after {
 @media screen and (max-width: 900px) and (orientation: portrait) {
   .rotate-prompt { display: flex; }
   .main, .topbar { display: none !important; }
+}
+
+/* Mobile Landscape - scale to fit */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  html {
+    font-size: 10px;
+  }
+  
+  body {
+    overflow: auto;
+  }
+  
+  .topbar {
+    height: 28px;
+    padding: 0 8px;
+    gap: 8px;
+  }
+  
+  .topbar-brand {
+    font-size: 9px;
+  }
+  
+  .topbar-tab {
+    font-size: 8px;
+    padding: 4px 8px;
+  }
+  
+  .topbar-status {
+    font-size: 8px;
+    gap: 6px;
+  }
+  
+  .main {
+    height: calc(100vh - 28px);
+  }
+  
+  .code-panel {
+    min-width: 280px;
+    width: 45%;
+  }
+  
+  .panel-header {
+    height: 24px;
+    font-size: 8px;
+    padding: 0 8px;
+  }
+  
+  .code-gutter-line {
+    min-height: 18px;
+    line-height: 18px;
+    font-size: 10px;
+  }
+  
+  .gutter {
+    width: 32px;
+    font-size: 9px;
+  }
+  
+  .code {
+    padding: 0 8px 0 4px;
+  }
+  
+  .right-col {
+    gap: 4px;
+    padding: 4px;
+  }
+  
+  .panel {
+    padding: 0;
+  }
+  
+  .panel-title {
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+  
+  .panel-body {
+    padding: 6px 8px;
+  }
+  
+  .mini-card h3 {
+    font-size: 8px;
+  }
+  
+  .mini-card .val {
+    font-size: 16px;
+  }
+  
+  .timeline-bar {
+    height: 16px;
+  }
+  
+  .log-content {
+    font-size: 9px;
+    line-height: 1.5;
+  }
+  
+  .event-entry {
+    padding: 1px 8px;
+  }
+}
+
+/* Very small mobile landscape (iPhone SE etc) */
+@media screen and (max-height: 400px) and (orientation: landscape) {
+  .code-panel {
+    min-width: 220px;
+    width: 42%;
+  }
+  
+  .code-gutter-line {
+    min-height: 16px;
+    line-height: 16px;
+    font-size: 9px;
+  }
+  
+  .mini-card .val {
+    font-size: 14px;
+  }
 }
 
 .rotate-phone {
